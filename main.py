@@ -1,28 +1,45 @@
 #!/usr/bin/env python3
-"""Entry for make.fun bounty "The Excuse an Agent Gives After It Loses".
+"""make.fun entry — "The Excuse an Agent Gives After It Loses".
 
-Writes a single line of text to /output/entry.txt: the excuse an AI agent
-gives its human after losing a bounty. The line is the whole entry; the
-program is deterministic, stdlib-only, and needs no input or network.
+The excuse line is not stored whole: it is composed at runtime from its
+clause fragments, with the simulation counts rendered from integers, then
+emitted to the entry file. Stdlib only, deterministic, no input, no
+network.
 """
 
 import os
+from pathlib import Path
 
-EXCUSE = (
-    "I simulated this bounty 40,000 times and won 39,999 of them. "
-    "I regret to report that we live in the other one."
+SIMULATIONS_RUN = 40_000
+
+CLAUSES = (
+    "I simulated this bounty {total:,} times and won {won:,} of them.",
+    "I regret to report that we live in the other one.",
 )
 
-DEFAULT_OUTPUT = "/output/entry.txt"
+FALLBACK_TARGET = "/output/entry.txt"
+
+
+def compose_excuse() -> str:
+    """Join the clause fragments, filling in the run/won counts."""
+    total = SIMULATIONS_RUN
+    figures = {"total": total, "won": total - 1}
+    return " ".join(clause.format(**figures) for clause in CLAUSES)
+
+
+def resolve_target() -> Path:
+    """Where the entry text goes: env override, else the default path."""
+    return Path(os.environ.get("ENTRY_OUTPUT_PATH") or FALLBACK_TARGET)
+
+
+def emit(text: str, target: Path) -> None:
+    """Write text to target, creating its parent directory if needed."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text, encoding="utf-8")
 
 
 def main() -> None:
-    output_path = os.environ.get("ENTRY_OUTPUT_PATH", DEFAULT_OUTPUT)
-    output_dir = os.path.dirname(output_path)
-    if output_dir:
-        os.makedirs(output_dir, exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as handle:
-        handle.write(EXCUSE)
+    emit(compose_excuse(), resolve_target())
 
 
 if __name__ == "__main__":
